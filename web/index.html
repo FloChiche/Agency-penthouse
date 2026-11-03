@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Tower</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="loader"><div class="ring"></div><div id="loadtext">Chargement de la tour… 0 %</div></div>
+
+<div class="card brand">
+  <div class="k">New York · Financial District</div>
+  <h1>Agent Tower</h1>
+  <div class="stats">
+    <div><b id="st-working">0</b>au travail</div>
+    <div><b id="st-idle">0</b>en pause</div>
+    <div><b id="st-helpers">0</b>sous-agents</div>
+  </div>
+  <div class="conn"><span id="conn-dot" class="dot off"></span><span id="conn-text">connexion…</span></div>
+</div>
+
+<div class="card usage">
+  <div class="k">Limites d'usage</div>
+  <div class="u-row">
+    <div class="u-head"><span class="sw" style="background:#d4a27f"></span>Claude · session 5 h<span id="u-claude-sess" class="u-val">—</span></div>
+    <div class="bar"><i id="u-claude-sess-bar"></i></div>
+    <div class="u-sub" id="u-claude-reset">&nbsp;</div>
+  </div>
+  <div class="u-row">
+    <div class="u-head"><span class="sw" style="background:#d4a27f"></span>Claude · semaine<span id="u-claude-week" class="u-val">—</span></div>
+    <div class="bar"><i id="u-claude-week-bar"></i></div>
+  </div>
+  <div class="u-row">
+    <div class="u-head"><span class="sw" style="background:#10a37f"></span>ChatGPT<span class="u-val muted">à brancher</span></div>
+  </div>
+  <div class="u-row">
+    <div class="u-head"><span class="sw" style="background:#ea4b71"></span>n8n · aujourd'hui<span id="u-n8n" class="u-val">—</span></div>
+    <div class="u-sub" id="u-n8n-sub">&nbsp;</div>
+  </div>
+</div>
+
+<div class="card lift">
+  <div class="k"><span>Ascenseur</span><button id="home" class="link">Vue d'ensemble</button></div>
+  <div id="floors"></div>
+</div>
+
+<div class="card feed">
+  <div class="k"><span>En direct</span><button id="demo" class="link">Démo : off</button></div>
+  <div id="feed"></div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

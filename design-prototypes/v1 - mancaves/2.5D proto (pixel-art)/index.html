@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Town — pixel-art</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0f0b1e; --panel:#1d1636; --line:#3a2d63; --ink:#f4e9ff; --muted:#9a8cc4; --busy:#ffb347; --idle:#7a7aa8; }
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; background:var(--bg); color:var(--ink); overflow:hidden; font-family:'VT323',monospace; }
+  canvas { display:block; width:100vw; height:100vh; image-rendering:pixelated; }
+  .hud { position:fixed; top:16px; right:16px; width:280px; background:var(--panel); border:4px solid var(--line); padding:14px; box-shadow:6px 6px 0 #000; }
+  .hud h1 { font-family:'Press Start 2P'; font-size:12px; color:var(--busy); margin-bottom:12px; }
+  .hud p { font-size:20px; display:flex; justify-content:space-between; border-top:2px dashed var(--line); padding:4px 0; }
+  .hud .b { color:var(--busy); } .hud .i { color:var(--idle); }
+  .tag { position:fixed; left:16px; top:16px; font-family:'Press Start 2P'; font-size:10px; color:var(--muted); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="tag">PROTO 2 — PIXEL-ART 2.5D</div>
+<div class="hud">
+  <h1>AGENT TOWN</h1>
+  <p>CLAUDE CODE <span class="b">▶ BUREAU</span></p>
+  <p>N8N <span class="b">▲ MONTE</span></p>
+  <p>RECHERCHE <span class="b">▶ BUREAU</span></p>
+  <p>CONTENU <span class="i">◆ PAUSE</span></p>
+  <p style="color:var(--muted)">14:32 refactor auth.ts 62%</p>
+</div>
+<script>
+// Résolution interne basse, mise à l'échelle sans lissage = vrai rendu pixel
+const W = 400, Hh = 225;
+const cv = document.getElementById('c');
+const g = cv.getContext('2d');
+function fit() {
+  const s = Math.max(1, Math.floor(Math.min(innerWidth / W, innerHeight / Hh)));
+  cv.width = W; cv.height = Hh;
+  cv.style.width = W * s + 'px'; cv.style.height = Hh * s + 'px';
+  cv.style.margin = `${(innerHeight - Hh*s)/2}px auto 0`;
+}
+fit(); addEventListener('resize', fit);
+
+const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x|0, y|0, w, h); };
+const stars = Array.from({ length: 60 }, () => [Math.random()*W, Math.random()*90, Math.random()]);
+
+const GROUND = 190, FLOOR = 34; // hauteur d'étage en pixels
+const caves = [
+  { name:'CLAUDE', x:14,  col:'#d97757', wall:'#3b2a3f', car:['#d97757','#e8e0d0'], working:true,  idle:2 },
+  { name:'N8N',    x:112, col:'#ea4b71', wall:'#3d2338', car:['#ea4b71'],           working:false, idle:2, climbing:true },
+  { name:'SCOUT',  x:210, col:'#4f8fd9', wall:'#22304a', car:['#4f8fd9','#f2c14e'], working:true,  idle:1 },
+  { name:'PLUME',  x:308, col:'#5cb27a', wall:'#24382c', car:['#5cb27a'],           working:false, idle:3 },
+];
+
+function sprite(x, y, col, frame, sitting) {
+  // petit bonhomme 5x9
+  R(x+1, y, 3, 3, '#f6d7b8');              // tête
+  R(x+1, y+1, 1, 1, '#000'); R(x+3, y+1, 1, 1, '#000');
+  R(x, y+3, 5, 4, col);                    // corps
+  if (sitting) { R(x+1, y+7, 4, 1, '#2b2b44'); }
+  else { R(x+ (frame ? 0 : 1), y+7, 1, 2, '#2b2b44'); R(x+ (frame ? 4 : 3), y+7, 1, 2, '#2b2b44'); }
+}
+function car(x, y, col) {
+  R(x+2, y, 12, 4, col); R(x, y+4, 20, 5, col);
+  R(x+4, y+1, 4, 3, '#9fd6ea'); R(x+9, y+1, 4, 3, '#9fd6ea');
+  R(x+3, y+9, 4, 3, '#111'); R(x+13, y+9, 4, 3, '#111');
+  R(x+18, y+5, 2, 2, '#ffe28a');
+}
+function pixText(t, x, y, col) { g.fillStyle = col; g.font = '8px "Press Start 2P"'; g.textBaseline = 'top'; g.fillText(t, x, y); }
+
+function drawCave(c, t) {
+  const x = c.x, w = 80, top = GROUND - FLOOR*2;
+  // enveloppe + coupe
+  R(x-2, top-6, w+4, 6, '#2a2140');               // toit
+  R(x, top, w, FLOOR*2, c.wall);
+  R(x, GROUND - FLOOR - 2, w, 3, '#5a4a3a');      // plancher étage
+  // enseigne néon (clignote)
+  const on = Math.sin(t*3 + x) > -0.7;
+  R(x+18, top-16, 44, 10, '#120e22');
+  pixText(c.name, x+20, top-15, on ? c.col : '#3a3050');
+
+  // ÉTAGE : bureau
+  const fy = GROUND - FLOOR - 2;
+  R(x+6, top+5, 14, 9, '#7ec8e3'); R(x+12, top+5, 1, 9, c.wall);   // fenêtre
+  R(x+30, fy-10, 26, 2, '#c49a6c'); R(x+31, fy-8, 2, 8, '#8a6a48'); R(x+53, fy-8, 2, 8, '#8a6a48'); // bureau
+  const glow = c.working ? (Math.sin(t*8)>0 ? c.col : '#ffffff') : '#2a2a3a';
+  R(x+34, fy-19, 9, 7, '#111'); R(x+35, fy-18, 7, 5, glow);
+  R(x+44, fy-19, 9, 7, '#111'); R(x+45, fy-18, 7, 5, c.working ? c.col : '#2a2a3a');
+  if (c.working) {
+    if (c.working) R(x+30, fy-12, 26, 1, c.col + '55');                    // halo écran
+    sprite(x+40, fy-12, c.col, 0, true);
+    if (Math.sin(t*10) > 0) R(x+46, fy-11, 1, 1, '#fff');                // frappe clavier
+  }
+  R(x+64, fy-14, 6, 14, '#8a6a48'); R(x+64, fy-10, 6, 1, '#d97757'); R(x+64, fy-5, 6, 1, '#4f8fd9'); // étagère
+  R(x+22, fy-6, 4, 6, '#a0522d'); R(x+21, fy-11, 6, 5, '#4caf50');      // plante
+
+  // RDC : garage (gauche) + salle de jeu (droite)
+  R(x, GROUND - FLOOR + 1, 36, FLOOR - 1, '#2b2b36');                    // garage
+  car(x + 8, GROUND - 13, c.car[0]);
+  R(x+36, GROUND - FLOOR + 1, 2, FLOOR - 1, '#1a1428');
+  R(x+38, GROUND - 2, 42, 2, '#5e3d78');                                 // tapis
+  R(x+44, GROUND - 10, 18, 4, '#2e7d4f'); R(x+45, GROUND - 6, 2, 4, '#5a3a24'); R(x+59, GROUND - 6, 2, 4, '#5a3a24'); // billard
+  R(x+68, GROUND - 18, 8, 16, '#3a3456'); R(x+69, GROUND - 16, 6, 5, Math.sin(t*5)>0 ? '#7cf2d0' : '#f27cd0'); // arcade
+  const spots = [[x+40, GROUND-11], [x+56, GROUND-11], [x+64, GROUND-11]];
+  for (let i = 0; i < c.idle; i++) {
+    const [sx, sy] = spots[i];
+    sprite(sx + Math.round(Math.sin(t*1.5 + i)*1), sy - (Math.sin(t*4+i*2) > 0.6 ? 1 : 0), c.col, (t*4+i)%2|0, false);
+  }
+
+  // escalier extérieur
+  for (let i = 0; i < 8; i++) { R(x + w, GROUND - 4 - i*4, 17 - i*2, 4, i%2 ? '#6b5a7a' : '#7a6889'); R(x + w, GROUND - 4 - i*4, 17 - i*2, 1, '#9a8aa9'); }
+  if (c.climbing) {
+    const k = (t * 0.25) % 1;
+    sprite(x + w + 1 + Math.round((1-k)*11), GROUND - 13 - k*(FLOOR-4), c.col, (t*6)%2|0, false);
+    if ((t*2)%1 > 0.5) pixText('!', x + w + 2 + Math.round((1-k)*11), GROUND - 24 - k*(FLOOR-4), '#ffb347');
+  }
+}
+
+let carX = -30;
+function frame(ms) {
+  const t = ms / 1000;
+  // ciel nuit
+  const sky = g.createLinearGradient(0, 0, 0, GROUND);
+  sky.addColorStop(0, '#120c2a'); sky.addColorStop(1, '#3b2459');
+  g.fillStyle = sky; g.fillRect(0, 0, W, Hh);
+  stars.forEach(([sx, sy, p]) => R(sx, sy, 1, 1, Math.sin(t*2 + p*10) > 0 ? '#fff' : '#8c7ab8'));
+  R(340, 18, 14, 14, '#f7e8b0'); R(344, 20, 4, 3, '#e3d08e');         // lune
+  // skyline lointaine
+  for (let i = 0; i < W; i += 22) R(i, 120 - ((i*7)%30), 18, 80, '#1c1336');
+  // rue
+  R(0, GROUND, W, 4, '#4a4458'); R(0, GROUND + 4, W, Hh - GROUND, '#29243a');
+  for (let i = 0; i < W; i += 20) R(i, GROUND + 15, 10, 2, '#e8d48a');
+  caves.forEach(c => drawCave(c, t));
+  // lampadaires
+  [100, 198, 296].forEach(lx => { R(lx+1, GROUND-30, 2, 30, '#3d3a50'); R(lx-1, GROUND-32, 6, 3, '#ffe9a8'); g.fillStyle = 'rgba(255,233,168,.08)'; g.beginPath(); g.moveTo(lx+2, GROUND-30); g.lineTo(lx-10, GROUND); g.lineTo(lx+14, GROUND); g.fill(); });
+  // voiture qui passe
+  carX = (t * 30) % (W + 60) - 30;
+  car(carX, GROUND + 6, '#f2c14e');
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

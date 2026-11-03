@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Town — 3D nuit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#e9ecf5; --muted:#8b93ad; --glass:rgba(14,16,28,.62); --line:rgba(255,255,255,.08); --accent:#d97757; }
+  * { box-sizing:border-box; margin:0; }
+  html,body { height:100%; background:#05060b; color:var(--ink); font-family:Inter,system-ui,sans-serif; overflow:hidden; }
+  canvas { display:block; }
+  .card { position:fixed; background:var(--glass); border:1px solid var(--line); border-radius:16px; backdrop-filter:blur(14px); padding:16px 18px; }
+  .focus { top:24px; left:24px; width:330px; }
+  .focus .k { font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); }
+  .focus h1 { font-size:24px; font-weight:800; margin:4px 0 10px; }
+  .focus h1 span { color:var(--accent); }
+  .bar { height:6px; background:rgba(255,255,255,.08); border-radius:9px; overflow:hidden; margin:10px 0 6px; }
+  .bar i { display:block; height:100%; width:62%; background:linear-gradient(90deg,#d97757,#ffb08a); box-shadow:0 0 12px #d97757; }
+  .mono { font-family:'JetBrains Mono',monospace; font-size:12px; color:#c9cee0; line-height:1.7; }
+  .mono b { color:#7ee2b8; font-weight:600; }
+  .dock { left:50%; transform:translateX(-50%); bottom:24px; display:flex; gap:8px; padding:8px; }
+  .dock div { padding:8px 14px; border-radius:10px; font-size:13px; display:flex; gap:8px; align-items:center; }
+  .dock div.on { background:rgba(255,255,255,.08); }
+  .dot { width:8px; height:8px; border-radius:50%; box-shadow:0 0 10px currentColor; background:currentColor; }
+  .tag { position:fixed; right:24px; top:24px; font-size:11px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="card focus">
+  <div class="k">Mancave · Claude Code</div>
+  <h1>Dev est <span>au bureau</span></h1>
+  <div class="mono">tâche&nbsp;: refactor auth.ts<br>outil&nbsp;: <b>Edit</b> src/auth/session.ts<br>depuis&nbsp;: 6 min · 41k tokens</div>
+  <div class="bar"><i></i></div>
+  <div class="mono" style="color:var(--muted)">2 agents en pause dans la salle de jeu</div>
+</div>
+<div class="card dock">
+  <div class="on"><span class="dot" style="color:#d97757"></span>Claude Code</div>
+  <div><span class="dot" style="color:#ea4b71"></span>n8n</div>
+  <div><span class="dot" style="color:#4f8fd9"></span>Recherche</div>
+  <div><span class="dot" style="color:#5a6075"></span>Contenu</div>
+</div>
+<div class="tag">Proto 3 — 3D « réaliste » de nuit · glisser pour tourner</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+               "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, preserveDrawingBuffer:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.7;
+document.body.prepend(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#070912');
+scene.fog = new THREE.FogExp2('#0a0d1a', 0.016);
+
+const camera = new THREE.PerspectiveCamera(38, innerWidth/innerHeight, 0.1, 300);
+camera.position.set(19, 11, 21);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(1.5, 3, 0);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI/2.1;
+controls.update();
+
+scene.add(new THREE.HemisphereLight('#3a4a88', '#14141f', 1.2));
+const moon = new THREE.DirectionalLight('#9fb4ff', 0.6);
+moon.position.set(-15, 25, 10); moon.castShadow = true;
+moon.shadow.mapSize.set(2048, 2048);
+Object.assign(moon.shadow.camera, { left:-30, right:30, top:30, bottom:-30 });
+scene.add(moon);
+
+const std = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness:0.75, metalness:0.05, ...o });
+const glow = (color, i = 3) => new THREE.MeshStandardMaterial({ color:'#000', emissive:color, emissiveIntensity:i });
+function box(p, w, h, d, m, x, y, z, round = 0) {
+  const geo = round ? new RoundedBoxGeometry(w, h, d, 3, round) : new THREE.BoxGeometry(w, h, d);
+  const mesh = new THREE.Mesh(geo, typeof m === 'string' ? std(m) : m);
+  mesh.position.set(x, y + h/2, z); mesh.castShadow = mesh.receiveShadow = true;
+  p.add(mesh); return mesh;
+}
+function light(p, color, intensity, dist, x, y, z, shadow = false) {
+  const l = new THREE.PointLight(color, intensity, dist, 2);
+  l.position.set(x, y, z); l.castShadow = shadow;
+  if (shadow) l.shadow.mapSize.set(512, 512);
+  p.add(l); return l;
+}
+function neonText(text, color) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 192;
+  const g = c.getContext('2d');
+  g.font = '800 120px Inter, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = color; g.shadowBlur = 30; g.fillStyle = '#fff'; g.fillText(text, 512, 100);
+  g.globalCompositeOperation = 'source-atop'; g.fillStyle = color; g.globalAlpha = .55; g.fillRect(0, 0, 1024, 192);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.94), new THREE.MeshBasicMaterial({ map:new THREE.CanvasTexture(c), transparent:true, toneMapped:false }));
+  return m;
+}
+
+// sol mouillé + route
+const road = new THREE.Mesh(new THREE.PlaneGeometry(200, 7), std('#15171f', { roughness:0.18, metalness:0.6 }));
+road.rotation.x = -Math.PI/2; road.position.set(0, 0.01, 7); road.receiveShadow = true; scene.add(road);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), std('#1b1e26', { roughness:0.9 }));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+for (let i = -60; i < 60; i += 4) box(scene, 1.6, 0.01, 0.14, glow('#e8d48a', 0.6), i, 0.02, 7);
+box(scene, 200, 0.15, 1.4, '#2a2d38', 0, 0, 3.6);
+
+function car(p, x, z, color, rot = 0, lights = false) {
+  const g = new THREE.Group();
+  const paint = std(color, { roughness:0.25, metalness:0.7 });
+  box(g, 2.2, 0.5, 1.05, paint, 0, 0.22, 0, 0.12);
+  box(g, 1.25, 0.45, 0.95, paint, -0.15, 0.68, 0, 0.15);
+  box(g, 1.27, 0.32, 0.97, std('#0d1220', { roughness:0.05, metalness:0.9 }), -0.15, 0.72, 0, 0.1);
+  [[-0.7,0.5],[0.7,0.5],[-0.7,-0.5],[0.7,-0.5]].forEach(([a,b]) => {
+    const w = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.24,0.18,20), std('#0b0b0d'));
+    w.rotation.x = Math.PI/2; w.position.set(a, 0.24, b); g.add(w);
+  });
+  if (lights) {
+    box(g, 0.05, 0.1, 0.25, glow('#fff3d6', 6), 1.1, 0.45, 0.3); box(g, 0.05, 0.1, 0.25, glow('#fff3d6', 6), 1.1, 0.45, -0.3);
+    box(g, 0.05, 0.1, 0.3, glow('#ff2a2a', 4), -1.1, 0.45, 0.3); box(g, 0.05, 0.1, 0.3, glow('#ff2a2a', 4), -1.1, 0.45, -0.3);
+  }
+  g.position.set(x, 0, z); g.rotation.y = rot; p.add(g); return g;
+}
+
+const agents = [];
+function agent(p, color, x, y, z, sit = false) {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.45, 8, 16), std(color, { roughness:0.5 }));
+  body.position.y = sit ? 0.6 : 0.55; body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 24, 16), std('#e9c9a8', { roughness:0.6 }));
+  head.position.y = body.position.y + 0.52; head.castShadow = true; g.add(head);
+  const visor = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.07, 0.05), glow(color, 2.5));
+  visor.position.set(0, head.position.y + 0.03, 0.2); g.add(visor);
+  g.position.set(x, y, z); p.add(g);
+  agents.push({ g, body, sit, phase: Math.random()*6, y });
+  return g;
+}
+
+const H = 3.2;
+function mancave({ name, color, x, z, working, idle, cars, dim }) {
+  const b = new THREE.Group();
+  const wallM = std('#2a2c36', { roughness:0.9 });
+  const brick = std('#3a2a26', { roughness:0.95 });
+  box(b, 9, 0.3, 6.5, std('#3a3d48', { roughness:0.35, metalness:0.3 }), 0, 0, 0);   // béton ciré
+  box(b, 9, 0.25, 6.5, std('#6b4a32', { roughness:0.55 }), 0, H, 0);                  // parquet
+  box(b, 9, 2*H + 0.3, 0.3, brick, 0, 0, -3.25);
+  box(b, 0.3, 2*H + 0.3, 6.5, wallM, -4.5, 0, 0);
+  box(b, 0.25, 2*H, 0.25, std('#111'), 4.4, 0, 3.15);
+  box(b, 9.2, 0.25, 0.4, wallM, 0, 2*H + 0.3, -3.25);
+  // enseigne néon sur le toit
+  const sign = neonText(name, color); sign.position.set(0, 2*H + 1.2, -3); b.add(sign);
+  light(b, color, dim ? 6 : 18, 9, 0, 2*H + 1, -2);
+  // bande néon sous le plancher
+  box(b, 9, 0.05, 0.05, glow(color, dim ? 1 : 4), 0, H - 0.05, 3.25);
+
+  // garage
+  box(b, 0.05, 0.05, 3.5, glow('#cfe3ff', 3), -2.6, H - 0.12, 0);
+  light(b, '#cfe3ff', 6, 6, -2.4, H - 0.5, 0);
+  cars.forEach((c, i) => car(b, -2.4, -1.4 + i*2.6, c));
+  box(b, 0.15, 2.4, 5.6, std('#3c3f48', { metalness:0.6, roughness:0.4 }), -4.3, 0.3, 0);
+
+  // salle de jeu
+  box(b, 4, 0.03, 5.6, std('#3b2350'), 2.3, 0.3, 0.1);
+  box(b, 2.0, 0.2, 1.1, std('#1f6b43', { roughness:0.9 }), 2.3, 0.75, -0.4, 0.05);
+  box(b, 2.2, 0.15, 1.3, std('#3a2416'), 2.3, 0.62, -0.4, 0.05);
+  box(b, 1.6, 0.04, 0.6, glow('#ffd9a0', 2), 2.3, H - 0.4, -0.4);   // lampe de billard
+  box(b, 2.4, 0.5, 0.9, std('#5b1f2a', { roughness:0.85 }), 2.2, 0.3, -2.5, 0.15);
+  box(b, 2.4, 0.8, 0.25, std('#4a1822', { roughness:0.85 }), 2.2, 0.3, -2.9, 0.1);
+  box(b, 0.85, 1.8, 0.7, std('#15121f'), 3.8, 0.3, 2.1);
+  box(b, 0.6, 0.45, 0.04, glow('#7cf2d0', 3), 3.8, 1.3, 1.74);
+  box(b, 2.6, 0.04, 0.05, glow('#b06cff', 5), 2.3, 2.4, -3.08);   // néon mural violet
+  light(b, '#b06cff', dim ? 3 : 8, 6, 2.3, 2, -2.5);
+  light(b, '#ffd9a0', 6, 5, 2.3, H - 0.7, -0.4, !dim);
+
+  // escalier extérieur métal
+  const stepM = std('#2e313b', { metalness:0.7, roughness:0.35 });
+  for (let i = 0; i < 11; i++) box(b, 1.2, 0.08, 0.5, stepM, 5.2, 0.29*(i+1), 2.9 - i*0.52);
+  for (let i = 0; i < 11; i++) box(b, 1.2, 0.02, 0.04, glow('#ffb24a', 1.5), 5.2, 0.29*(i+1) + 0.08, 2.67 - i*0.52);
+  box(b, 1.2, 0.15, 1.3, stepM, 5.2, H, -2.5);
+  box(b, 0.05, 1, 0.05, std('#888', { metalness:0.9 }), 5.8, H, -1.9);
+
+  // bureau
+  box(b, 2.8, 0.08, 1.15, std('#d9d3c7', { roughness:0.4 }), -1, H + 0.95, -2.05, 0.03);
+  box(b, 0.08, 0.95, 1.0, std('#222', { metalness:0.8 }), -2.3, H + 0.12, -2.05);
+  box(b, 0.08, 0.95, 1.0, std('#222', { metalness:0.8 }), 0.3, H + 0.12, -2.05);
+  const scr = working ? glow(color, 2.2) : glow('#20232e', 0.3);
+  [-1.6, -0.4].forEach(sx => { box(b, 1.1, 0.66, 0.05, std('#0b0b0d'), sx, H + 1.1, -2.4); box(b, 1.0, 0.56, 0.02, scr, sx, H + 1.15, -2.36); });
+  if (working) light(b, color, 6, 4, -1, H + 1.4, -1.6);
+  box(b, 0.7, 0.5, 0.7, std('#1a1a1f'), -1, H + 0.12, -1.15, 0.1);
+  box(b, 0.3, 2.2, 1.8, std('#3b2a1e'), -4.15, H + 0.12, 1);
+  [0.7, 1.3, 1.9].forEach(y => box(b, 0.32, 0.04, 1.8, std('#5a4030'), -4.15, H + y, 1));
+  box(b, 2.6, 1.2, 0.04, std('#8fb3ff', { emissive:'#1c2b55', roughness:0.1, metalness:0.2 }), 1.6, H + 1.1, -3.08); // baie vitrée
+  light(b, '#ffcf99', dim ? 3 : 7, 7, 1, 2*H - 0.4, 0, !dim);
+  const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), glow('#ffcf99', 4));
+  lamp.position.set(1, 2*H - 0.3, 0); b.add(lamp);
+
+  if (working) agent(b, color, -1, H + 0.12, -1.15, true).rotation.y = Math.PI;
+  idle.forEach(([ax, az, ry, sit]) => { agent(b, color, ax, 0.3, az, sit).rotation.y = ry; });
+
+  b.position.set(x, 0, z); scene.add(b); return b;
+}
+
+mancave({ name:'CLAUDE CODE', color:'#d97757', x:0, z:0, working:true, cars:['#c25a3a','#c9ccd6'],
+  idle:[[1.3, 0.55, Math.PI*0.85, false], [1.7, -2.3, 0, true]] });
+mancave({ name:'N8N', color:'#ea4b71', x:-17, z:-2, working:false, dim:true, cars:['#7a1f35'],
+  idle:[[1.6, -2.3, 0, true], [2.6, -2.3, 0, true]] });
+mancave({ name:'RECHERCHE', color:'#4f8fd9', x:17, z:-2, working:true, dim:true, cars:['#22406b'],
+  idle:[[1.3, 0.55, Math.PI*0.85, false]] });
+
+// lampadaires
+[[-8, 3.4], [8.5, 3.4], [24, 3.4]].forEach(([lx, lz]) => {
+  box(scene, 0.1, 4, 0.1, std('#20222a', { metalness:0.8 }), lx, 0, lz);
+  box(scene, 0.5, 0.12, 0.25, glow('#ffd28a', 5), lx, 4, lz);
+  light(scene, '#ffb85c', 14, 9, lx, 3.8, lz + 0.6);
+});
+const driving = car(scene, -40, 8.2, '#e8e8ee', 0, true);
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.7, 0.5, 0.82));
+composer.addPass(new OutputPass());
+
+const clock = new THREE.Clock();
+(function tick() {
+  const t = clock.getElapsedTime();
+  agents.forEach(a => {
+    if (a.sit) a.body.scale.y = 1 + Math.sin(t*6 + a.phase)*0.02;
+    else a.g.position.y = a.y + Math.abs(Math.sin(t*2 + a.phase))*0.05;
+  });
+  driving.position.x = -40 + ((t*7) % 80);
+  controls.update();
+  composer.render();
+  requestAnimationFrame(tick);
+})();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

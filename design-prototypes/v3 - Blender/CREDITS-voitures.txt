@@ -1,0 +1,9 @@
+Ferrari 458 Italia — modèle des exemples three.js (github.com/mrdoob/three.js, examples/models/gltf/ferrari.glb), licence CC-BY : créditer l'auteur d'origine indiqué dans le dépôt three.js.
+Modèles Sketchfab (licence CC Attribution) :
+- Porsche 911 (930) Turbo 1975 — Lionsharp Studios
+- Mercedes-Benz G63 AMG — Black Snow
+- Renault Clio 2 Phase 2 — lsshikoku
+- Bugatti Chiron Super Sport 300+ — kevin (ケビン)
+- Lamborghini Huracán Twin Turbo [LOST] — Black Snow
+- Ferrari F40 — Black Snow
+- McLaren Senna — Black Snow

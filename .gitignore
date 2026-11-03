@@ -1,0 +1,4 @@
+# Réglages locaux : mot de passe, clé API n8n
+config.json
+server.log
+node_modules/
